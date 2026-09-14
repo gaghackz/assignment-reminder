@@ -1,0 +1,30 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Event {
+  id            String   @id
+  emailId       String
+  type          String
+  title         String
+  description   String
+  deadline      String?
+  deadline_text String?
+  needs_review  Boolean  @default(false)
+  important     Boolean  @default(true)
+  sender        String
+  senderEmail   String
+  subject       String
+  receivedAt    String
+  gmailLink     String
+  completed     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+}
+
+model ProcessedEmail {
+  id String @id
+}
