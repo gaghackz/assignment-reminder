@@ -1,12 +1,15 @@
-﻿import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 
 declare global {
   // eslint-disable-next-line no-var
   var __prisma: PrismaClient | undefined;
 }
 
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+
 // Singleton to avoid exhausting connection pool in dev (HMR)
-const prisma = global.__prisma ?? new PrismaClient();
+const prisma = global.__prisma ?? new PrismaClient({ adapter });
 if (process.env.NODE_ENV !== "production") global.__prisma = prisma;
 
 export default prisma;
