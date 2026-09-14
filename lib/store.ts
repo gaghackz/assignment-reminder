@@ -1,4 +1,4 @@
-﻿import prisma from "./prisma";
+import prisma from "./prisma";
 import { ExtractedEvent } from "./ai";
 
 // ─────────────────────────────────────────────────────────
@@ -43,7 +43,7 @@ function toStoredEvent(row: any): StoredEvent {
 
 export async function getProcessedEmailIds(): Promise<Set<string>> {
   const rows = await prisma.processedEmail.findMany({ select: { id: true } });
-  return new Set(rows.map((r) => r.id));
+  return new Set(rows.map((r: { id: string }) => r.id));
 }
 
 export async function markEmailsProcessed(ids: string[]): Promise<void> {
