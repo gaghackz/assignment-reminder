@@ -24,23 +24,23 @@ interface Event {
 }
 
 // ── Helpers ──────────────────────────────────────
-const TYPE_EMOJI: Record<EventType, string> = {
-  assignment: "📚", quiz: "📝", exam: "🎯", project: "🔬",
-  lab: "🧪", announcement: "📢", material: "📄",
-  class_change: "🏫", attendance: "✅", other: "ℹ️",
+const TYPE_LABEL: Record<EventType, string> = {
+  assignment: "Assignment", quiz: "Quiz", exam: "Exam", project: "Project",
+  lab: "Lab", announcement: "Notice", material: "Material",
+  class_change: "Schedule", attendance: "Attendance", other: "Other",
 };
 
-const TYPE_COLOR: Record<EventType, { bg: string; color: string; accent: string }> = {
-  assignment: { bg: "rgba(59,130,246,0.12)",  color: "#60a5fa", accent: "#3b82f6" },
-  quiz:       { bg: "rgba(168,85,247,0.12)",  color: "#c084fc", accent: "#a855f7" },
-  exam:       { bg: "rgba(239,68,68,0.12)",   color: "#f87171", accent: "#ef4444" },
-  project:    { bg: "rgba(20,184,166,0.12)",  color: "#2dd4bf", accent: "#14b8a6" },
-  lab:        { bg: "rgba(234,179,8,0.12)",   color: "#facc15", accent: "#eab308" },
-  announcement:{ bg:"rgba(99,102,241,0.12)", color: "#818cf8", accent: "#6366f1" },
-  material:   { bg: "rgba(34,197,94,0.12)",   color: "#4ade80", accent: "#22c55e" },
-  class_change:{ bg:"rgba(249,115,22,0.12)", color: "#fb923c", accent: "#f97316" },
-  attendance: { bg: "rgba(234,179,8,0.12)",   color: "#facc15", accent: "#eab308" },
-  other:      { bg: "rgba(107,114,128,0.12)", color: "#9ca3af", accent: "#6b7280" },
+const TYPE_DOT: Record<EventType, string> = {
+  assignment:   "#3a6b4a",
+  quiz:         "#5a6e5a",
+  exam:         "#8b3a3a",
+  project:      "#3a5a6b",
+  lab:          "#6b5a3a",
+  announcement: "#5a6e5a",
+  material:     "#4a5a4a",
+  class_change: "#8b6b3a",
+  attendance:   "#7a6e2a",
+  other:        "#8a8a80",
 };
 
 function daysUntil(dateStr: string): number {
@@ -51,71 +51,67 @@ function daysUntil(dateStr: string): number {
   return Math.ceil((deadline.getTime() - today.getTime()) / 86400000);
 }
 
-function formatDeadline(dateStr: string): { label: string; color: string } {
+function formatDeadline(dateStr: string): { label: string; status: string; color: string; bg: string } {
   const days = daysUntil(dateStr);
   const date = new Date(dateStr).toLocaleDateString("en-IN", {
     day: "numeric", month: "short",
   });
 
-  if (days < 0)  return { label: `Overdue · ${date}`, color: "#ef4444" };
-  if (days === 0) return { label: `Due Today · ${date}`, color: "#ef4444" };
-  if (days === 1) return { label: `Tomorrow · ${date}`, color: "#f97316" };
-  if (days <= 3)  return { label: `${days} days · ${date}`, color: "#f97316" };
-  if (days <= 7)  return { label: `${days} days · ${date}`, color: "#eab308" };
-  return { label: date, color: "#8b8fa8" };
+  if (days < 0)  return { label: date, status: "OVERDUE",  color: "#8b3a3a", bg: "var(--status-red-bg)" };
+  if (days === 0) return { label: date, status: "TODAY",    color: "#8b3a3a", bg: "var(--status-red-bg)" };
+  if (days === 1) return { label: date, status: "TOMORROW", color: "#8b6b3a", bg: "var(--status-orange-bg)" };
+  if (days <= 3)  return { label: date, status: `${days}D LEFT`,  color: "#8b6b3a", bg: "var(--status-orange-bg)" };
+  if (days <= 7)  return { label: date, status: `${days}D LEFT`,  color: "#7a6e2a", bg: "var(--status-yellow-bg)" };
+  return { label: date, status: "", color: "#8a8a80", bg: "transparent" };
 }
 
 function formatReceived(iso: string): string {
   return new Date(iso).toLocaleDateString("en-IN", {
-    day: "numeric", month: "short", year: "numeric",
+    day: "numeric", month: "short",
   });
 }
 
 const FILTERS = [
-  { key: "all",          label: "All" },
-  { key: "assignment",   label: "📚 Assignments" },
-  { key: "quiz",         label: "📝 Quizzes" },
-  { key: "exam",         label: "🎯 Exams" },
-  { key: "project",      label: "🔬 Projects" },
-  { key: "lab",          label: "🧪 Labs" },
-  { key: "announcement", label: "📢 Announcements" },
-  { key: "material",     label: "📄 Materials" },
-  { key: "class_change", label: "🏫 Class Changes" },
-  { key: "completed",    label: "✅ Completed" },
+  { key: "all",          label: "Overview" },
+  { key: "assignment",   label: "Assignments" },
+  { key: "quiz",         label: "Quizzes" },
+  { key: "exam",         label: "Exams" },
+  { key: "project",      label: "Projects" },
+  { key: "announcement", label: "Notices" },
+  { key: "completed",    label: "Completed" },
 ];
 
-
-// ── Event card ────────────────────────────────────
-function EventCard({ ev, onToggle }: { ev: Event; onToggle: (id: string) => void }) {
-  const colors = TYPE_COLOR[ev.type];
+// ── Event Row ─────────────────────────────────────
+function EventRow({ ev, onToggle }: { ev: Event; onToggle: (id: string) => void }) {
+  const dotColor = TYPE_DOT[ev.type];
   const dl = ev.deadline ? formatDeadline(ev.deadline) : null;
 
   return (
-    <div
-      className={`event-card ${ev.completed ? "completed" : ""}`}
-      style={{ "--card-accent": colors.accent } as React.CSSProperties}
-    >
-      <span className="event-emoji">{TYPE_EMOJI[ev.type]}</span>
+    <div className={`event-card ${ev.completed ? "completed" : ""}`}>
+      <div
+        className="event-type-indicator"
+        style={{ background: dotColor }}
+        title={TYPE_LABEL[ev.type]}
+      />
 
       <div className="event-body">
-        <div className="event-top">
+        <div className="event-top-row">
           <span className="event-title">{ev.title}</span>
-          <div className="event-badge">
-            {dl && (
+          <div className="event-badges">
+            {dl && dl.status && (
               <span
-                className="badge badge-deadline"
-                style={{ color: dl.color, background: `${dl.color}18` }}
+                className="status-tag"
+                style={{ color: dl.color, background: dl.bg }}
               >
-                {dl.label}
+                <span className="status-dot" style={{ background: dl.color }} />
+                {dl.status}
               </span>
             )}
-            {ev.deadline_text && !ev.deadline && (
-              <span className="badge" style={{ color: "#8b8fa8", background: "rgba(107,114,128,0.1)" }}>
-                {ev.deadline_text}
-              </span>
-            )}
-            <span className="badge" style={{ background: colors.bg, color: colors.color }}>
-              {ev.type.replace("_", " ")}
+            <span className="badge" style={{
+              background: "var(--bg-input)",
+              color: "var(--text3)"
+            }}>
+              {TYPE_LABEL[ev.type]}
             </span>
           </div>
         </div>
@@ -123,16 +119,27 @@ function EventCard({ ev, onToggle }: { ev: Event; onToggle: (id: string) => void
         <p className="event-desc">{ev.description}</p>
 
         <div className="event-meta">
-          <span className="meta-item">
-            <span>👤</span>
-            <span>{ev.sender}</span>
-          </span>
-          <span className="meta-item">
-            <span>📅</span>
-            <span>{formatReceived(ev.receivedAt)}</span>
-          </span>
+          <span className="meta-item">{ev.sender}</span>
+          <span className="meta-divider" />
+          <span className="meta-item">{formatReceived(ev.receivedAt)}</span>
+          {ev.deadline && (
+            <>
+              <span className="meta-divider" />
+              <span className="meta-item">Due {dl?.label}</span>
+            </>
+          )}
+          {ev.deadline_text && !ev.deadline && (
+            <>
+              <span className="meta-divider" />
+              <span className="meta-item">{ev.deadline_text}</span>
+            </>
+          )}
           {ev.needs_review && (
-            <span className="review-warning">⚠️ Verify deadline</span>
+            <span className="status-tag" style={{
+              color: "var(--status-orange)", background: "var(--status-orange-bg)"
+            }}>
+              Verify
+            </span>
           )}
         </div>
       </div>
@@ -140,27 +147,26 @@ function EventCard({ ev, onToggle }: { ev: Event; onToggle: (id: string) => void
       <div className="event-actions">
         <button
           id={`btn-complete-${ev.id}`}
-          className="btn-check"
+          className="btn-action btn-done"
           title={ev.completed ? "Mark incomplete" : "Mark complete"}
           onClick={() => onToggle(ev.id)}
         >
-          {ev.completed ? "✓" : "○"}
+          {ev.completed ? "Undo" : "Done"}
         </button>
         <a
           id={`btn-gmail-${ev.id}`}
-          className="btn-gmail"
+          className="btn-action"
           href={ev.gmailLink}
           target="_blank"
           rel="noreferrer"
           title="View original email"
         >
-          ↗
+          View
         </a>
       </div>
     </div>
   );
 }
-
 
 // ── Dashboard ─────────────────────────────────────
 function Dashboard() {
@@ -169,6 +175,21 @@ function Dashboard() {
   const [syncing, setSyncing] = useState(false);
   const [lastSynced, setLastSynced] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+
+  useEffect(() => {
+    const saved = localStorage.getItem("theme") as "light" | "dark" | null;
+    const preferred = saved || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    setTheme(preferred);
+    document.documentElement.setAttribute("data-theme", preferred);
+  }, []);
+
+  const toggleTheme = () => {
+    const next = theme === "light" ? "dark" : "light";
+    setTheme(next);
+    localStorage.setItem("theme", next);
+    document.documentElement.setAttribute("data-theme", next);
+  };
 
   const showToast = (msg: string, type: "success" | "error") => {
     setToast({ msg, type });
@@ -197,44 +218,38 @@ function Dashboard() {
 
       if (!silent) {
         showToast(
-          `✅ Synced! ${data.processed} emails processed, ${data.newEvents} new items found.`,
+          `Synced — ${data.processed} emails processed, ${data.newEvents} new items.`,
           "success"
         );
       } else if (data.newEvents > 0) {
-        showToast(`🔄 Auto-synced: ${data.newEvents} new item${data.newEvents === 1 ? "" : "s"} found.`, "success");
+        showToast(`Auto-synced: ${data.newEvents} new item${data.newEvents === 1 ? "" : "s"}.`, "success");
       }
     } catch (err: any) {
-      if (!silent) showToast(`❌ ${err.message}`, "error");
+      if (!silent) showToast(err.message, "error");
     } finally {
       setSyncing(false);
     }
   }, [loadEvents]);
 
-
   const handleToggle = async (id: string) => {
-    // Optimistic update
     setEvents((prev) =>
       prev.map((e) => (e.id === id ? { ...e, completed: !e.completed } : e))
     );
     await fetch(`/api/events/${id}/complete`, { method: "POST" });
   };
 
-  // ── Filtered events ──
   const filtered = events.filter((e) => {
     if (filter === "all") return !e.completed;
     if (filter === "completed") return e.completed;
     return e.type === filter && !e.completed;
   });
 
-  // ── Stats ──
   const active = events.filter((e) => !e.completed);
   const urgentCount = active.filter((e) => e.deadline && daysUntil(e.deadline) <= 3).length;
   const assignCount = active.filter((e) => e.type === "assignment").length;
-  const quizCount   = active.filter((e) => e.type === "quiz").length;
   const examCount   = active.filter((e) => e.type === "exam").length;
   const doneCount   = events.filter((e) => e.completed).length;
 
-  // ── Group filtered events into sections ──
   const urgent = filtered.filter(
     (e) => e.deadline && daysUntil(e.deadline) <= 3 && filter === "all"
   );
@@ -244,15 +259,13 @@ function Dashboard() {
 
   return (
     <div className="shell">
-      {/* Header */}
       <header className="header">
         <div className="header-brand">
-          <span className="logo-icon">🎓</span>
           <h2>Faculty Mail Tracker</h2>
         </div>
         <div className="header-right">
           <span className="sync-status">
-            {lastSynced && <>Last synced {lastSynced}</>}
+            {lastSynced && <>Last sync {lastSynced}</>}
           </span>
           <button
             id="btn-sync"
@@ -261,30 +274,61 @@ function Dashboard() {
             disabled={syncing}
           >
             <span className={syncing ? "spin" : ""}>⟳</span>
-            {syncing ? "Syncing…" : "Sync Emails"}
+            {syncing ? "Syncing…" : "Sync"}
+          </button>
+          <button
+            id="btn-theme"
+            className="theme-toggle"
+            onClick={toggleTheme}
+            title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+            aria-label="Toggle theme"
+          >
+            {theme === "light" ? (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="5"/>
+                <line x1="12" y1="1" x2="12" y2="3"/>
+                <line x1="12" y1="21" x2="12" y2="23"/>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                <line x1="1" y1="12" x2="3" y2="12"/>
+                <line x1="21" y1="12" x2="23" y2="12"/>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+              </svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+              </svg>
+            )}
           </button>
         </div>
       </header>
 
-      {/* Body */}
       <main className="content">
-        {/* Stats */}
+        <div className="overview-header">
+          <h1 className="overview-title">Today&apos;s Overview</h1>
+          <p className="overview-sub">
+            {active.length > 0
+              ? `${active.length} active items${urgentCount > 0 ? ` | ${urgentCount} urgent` : ''} | ${doneCount} completed`
+              : 'No pending items'}
+          </p>
+        </div>
+
         <div className="stats-row">
           {[
-            { num: urgentCount, label: "Urgent", color: "#ef4444" },
-            { num: assignCount, label: "Assignments", color: "#3b82f6" },
-            { num: quizCount,   label: "Quizzes",     color: "#a855f7" },
-            { num: examCount,   label: "Exams",       color: "#ef4444" },
-            { num: doneCount,   label: "Completed",   color: "#22c55e" },
-          ].map(({ num, label, color }) => (
+            { num: active.length, label: "Active" },
+            { num: urgentCount,   label: "Urgent" },
+            { num: assignCount,   label: "Assignments" },
+            { num: examCount,     label: "Exams" },
+            { num: doneCount,     label: "Completed" },
+          ].map(({ num, label }) => (
             <div className="stat-card" key={label}>
-              <div className="stat-num" style={{ color }}>{num}</div>
               <div className="stat-label">{label}</div>
+              <div className="stat-num">{String(num).padStart(2, '0')}</div>
             </div>
           ))}
         </div>
 
-        {/* Filters */}
         <div className="filter-bar">
           {FILTERS.map(({ key, label }) => (
             <button
@@ -298,20 +342,16 @@ function Dashboard() {
           ))}
         </div>
 
-        {/* Content */}
         {filtered.length === 0 && urgent.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-icon">
-              {events.length === 0 ? "📭" : "✨"}
-            </div>
             <h3>
               {events.length === 0
-                ? "No items yet — click Sync Emails to get started"
+                ? "No items yet — click Sync to get started"
                 : "Nothing here"}
             </h3>
             <p>
               {events.length === 0
-                ? "Make sure your faculty email addresses are set in lib/faculty.ts"
+                ? "Make sure your faculty emails are configured"
                 : "Try a different filter"}
             </p>
           </div>
@@ -319,10 +359,13 @@ function Dashboard() {
           <>
             {urgent.length > 0 && (
               <div className="section">
-                <div className="section-title">🔴 Due in 3 days or less</div>
+                <div className="section-title">
+                  <span className="dot" style={{ background: "var(--status-red)" }} />
+                  Due in 3 days or less
+                </div>
                 <div className="events-list">
                   {urgent.map((ev) => (
-                    <EventCard key={ev.id} ev={ev} onToggle={handleToggle} />
+                    <EventRow key={ev.id} ev={ev} onToggle={handleToggle} />
                   ))}
                 </div>
               </div>
@@ -331,13 +374,14 @@ function Dashboard() {
             {rest.length > 0 && (
               <div className="section">
                 <div className="section-title">
-                  {filter === "all" ? "📋 Upcoming" : ""}
-                  {filter === "completed" ? "✅ Completed" : ""}
+                  <span className="dot" style={{ background: "var(--status-green)" }} />
+                  {filter === "all" ? "Upcoming" : ""}
+                  {filter === "completed" ? "Completed" : ""}
                   {!["all", "completed"].includes(filter) ? "Results" : ""}
                 </div>
                 <div className="events-list">
                   {rest.map((ev) => (
-                    <EventCard key={ev.id} ev={ev} onToggle={handleToggle} />
+                    <EventRow key={ev.id} ev={ev} onToggle={handleToggle} />
                   ))}
                 </div>
               </div>
@@ -346,7 +390,6 @@ function Dashboard() {
         )}
       </main>
 
-      {/* Toast */}
       {toast && (
         <div className={`toast ${toast.type}`}>
           {toast.msg}
@@ -356,7 +399,6 @@ function Dashboard() {
   );
 }
 
-// ── Root ──────────────────────────────────────────
 export default function Home() {
   return <Dashboard />;
 }
