@@ -6,8 +6,12 @@ const oauth2Client = new google.auth.OAuth2(
   `${process.env.NEXTAUTH_URL}/api/auth/callback/google`
 );
 
-export function getGmailClient(accessToken: string) {
-  oauth2Client.setCredentials({ access_token: accessToken });
+export function getGmailClient(credentials: { accessToken?: string; refreshToken?: string }) {
+  if (credentials.refreshToken) {
+    oauth2Client.setCredentials({ refresh_token: credentials.refreshToken });
+  } else if (credentials.accessToken) {
+    oauth2Client.setCredentials({ access_token: credentials.accessToken });
+  }
   return google.gmail({ version: "v1", auth: oauth2Client });
 }
 
@@ -48,11 +52,11 @@ export interface ParsedEmail {
 }
 
 export async function fetchFacultyEmails(
-  accessToken: string,
+  credentials: { accessToken?: string; refreshToken?: string },
   facultyEmails: Set<string>,
   maxResults = 50
 ): Promise<ParsedEmail[]> {
-  const gmail = getGmailClient(accessToken);
+  const gmail = getGmailClient(credentials);
 
   // Build a query that searches for emails from any faculty address
   const fromQuery = Array.from(facultyEmails)

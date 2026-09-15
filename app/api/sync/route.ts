@@ -12,23 +12,24 @@ import {
 } from "@/lib/store";
 import { FACULTY_EMAILS, getFacultyName } from "@/lib/faculty";
 
-export async function POST() {
-  const session = await auth();
+export async function POST(req: Request) {
+  // Check for cron secret if using Vercel cron
+  const authHeader = req.headers.get("authorization");
+  const isCron = authHeader === `Bearer ${process.env.CRON_SECRET}`;
 
-  if (!session) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
+  // If you want to restrict manual syncing, you can enforce isCron here.
+  // For now, we allow manual trigger from the UI or Vercel cron.
 
-  const accessToken = (session as any).accessToken as string | undefined;
-  if (!accessToken) {
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+  if (!refreshToken) {
     return NextResponse.json(
-      { error: "No Gmail access token. Please sign out and sign in again." },
-      { status: 403 }
+      { error: "GOOGLE_REFRESH_TOKEN is not set in environment variables." },
+      { status: 500 }
     );
   }
 
   try {
-    const emails = await fetchFacultyEmails(accessToken, FACULTY_EMAILS, 50);
+    const emails = await fetchFacultyEmails({ refreshToken }, FACULTY_EMAILS, 50);
 
     // Load already-processed IDs from DB
     const processedIds = await getProcessedEmailIds();

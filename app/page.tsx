@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { signIn, signOut, useSession } from "next-auth/react";
 
 // ── Types ────────────────────────────────────────
 type EventType =
@@ -85,37 +84,6 @@ const FILTERS = [
   { key: "completed",    label: "✅ Completed" },
 ];
 
-// ── Login screen ─────────────────────────────────
-function LoginScreen() {
-  return (
-    <div className="login-page">
-      <div className="login-card">
-        <div className="login-icon">🎓</div>
-        <h1>Faculty Mail Tracker</h1>
-        <p>
-          Connect your Gmail to automatically extract assignments, quizzes,
-          and announcements from your faculty's emails using AI.
-        </p>
-        <button
-          id="btn-google-signin"
-          className="btn-google"
-          onClick={() => signIn("google")}
-        >
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
-            <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.859-3.048.859-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
-            <path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
-            <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
-          </svg>
-          Continue with Google
-        </button>
-        <p className="login-note">
-          Only reads emails from your faculty. Gmail content stays private.
-        </p>
-      </div>
-    </div>
-  );
-}
 
 // ── Event card ────────────────────────────────────
 function EventCard({ ev, onToggle }: { ev: Event; onToggle: (id: string) => void }) {
@@ -193,27 +161,13 @@ function EventCard({ ev, onToggle }: { ev: Event; onToggle: (id: string) => void
   );
 }
 
-const AUTO_SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
-const LS_KEY = "faculty_last_auto_sync";
-
-function getNextSyncLabel(lastAutoSync: number | null): string {
-  if (!lastAutoSync) return "Auto-sync pending";
-  const nextMs = lastAutoSync + AUTO_SYNC_INTERVAL_MS;
-  const diffMs = nextMs - Date.now();
-  if (diffMs <= 0) return "Auto-sync pending";
-  const h = Math.floor(diffMs / 3600000);
-  const m = Math.floor((diffMs % 3600000) / 60000);
-  return h > 0 ? `Next auto-sync in ${h}h ${m}m` : `Next auto-sync in ${m}m`;
-}
 
 // ── Dashboard ─────────────────────────────────────
 function Dashboard() {
-  const { data: session } = useSession();
   const [events, setEvents] = useState<Event[]>([]);
   const [filter, setFilter] = useState("all");
   const [syncing, setSyncing] = useState(false);
   const [lastSynced, setLastSynced] = useState<string | null>(null);
-  const [nextSyncLabel, setNextSyncLabel] = useState<string>("Auto-sync pending");
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
   const showToast = (msg: string, type: "success" | "error") => {
@@ -238,9 +192,6 @@ function Dashboard() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Sync failed");
 
-      const now = Date.now();
-      localStorage.setItem(LS_KEY, String(now));
-      setNextSyncLabel(getNextSyncLabel(now));
       setLastSynced(new Date().toLocaleTimeString("en-IN"));
       await loadEvents();
 
@@ -259,31 +210,6 @@ function Dashboard() {
     }
   }, [loadEvents]);
 
-  // Auto-sync: fire on mount if 24h have elapsed, then check every minute
-  useEffect(() => {
-    const raw = localStorage.getItem(LS_KEY);
-    const lastAutoSync = raw ? Number(raw) : null;
-
-    // Update label immediately
-    setNextSyncLabel(getNextSyncLabel(lastAutoSync));
-
-    // Trigger if never synced or 24h passed
-    if (!lastAutoSync || Date.now() - lastAutoSync >= AUTO_SYNC_INTERVAL_MS) {
-      handleSync(true);
-    }
-
-    // Check every minute to update label & trigger when due
-    const interval = setInterval(() => {
-      const raw2 = localStorage.getItem(LS_KEY);
-      const last = raw2 ? Number(raw2) : null;
-      setNextSyncLabel(getNextSyncLabel(last));
-      if (!last || Date.now() - last >= AUTO_SYNC_INTERVAL_MS) {
-        handleSync(true);
-      }
-    }, 60_000);
-
-    return () => clearInterval(interval);
-  }, [handleSync]);
 
   const handleToggle = async (id: string) => {
     // Optimistic update
@@ -326,8 +252,7 @@ function Dashboard() {
         </div>
         <div className="header-right">
           <span className="sync-status">
-            {lastSynced && <>Last synced {lastSynced} · </>}
-            {nextSyncLabel}
+            {lastSynced && <>Last synced {lastSynced}</>}
           </span>
           <button
             id="btn-sync"
@@ -337,13 +262,6 @@ function Dashboard() {
           >
             <span className={syncing ? "spin" : ""}>⟳</span>
             {syncing ? "Syncing…" : "Sync Emails"}
-          </button>
-          <button
-            id="btn-signout"
-            className="btn-signout"
-            onClick={() => signOut()}
-          >
-            Sign out
           </button>
         </div>
       </header>
@@ -440,16 +358,5 @@ function Dashboard() {
 
 // ── Root ──────────────────────────────────────────
 export default function Home() {
-  const { data: session, status } = useSession();
-
-  if (status === "loading") {
-    return (
-      <div className="login-page">
-        <div style={{ color: "var(--text2)", fontSize: "0.9rem" }}>Loading…</div>
-      </div>
-    );
-  }
-
-  if (!session) return <LoginScreen />;
   return <Dashboard />;
 }
