@@ -298,12 +298,23 @@ body {
 /* ═══════════════════════════════════════════════════
    TABS / FILTERS
    ═══════════════════════════════════════════════════ */
+.filter-bar-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 36px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
 .filter-bar {
   display: flex;
   gap: 0;
   flex-wrap: wrap;
-  margin-bottom: 36px;
-  border-bottom: 1px solid var(--border);
+}
+
+.view-toggles {
+  display: flex;
 }
 
 .filter-btn {
@@ -547,6 +558,138 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════
+   CALENDAR
+   ═══════════════════════════════════════════════════ */
+.calendar-container {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+}
+
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.calendar-header h3 {
+  font-family: 'Instrument Serif', serif;
+  font-size: 1.8rem;
+  font-weight: 400;
+  color: var(--text);
+  margin: 0;
+}
+
+.btn-cal-nav {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.btn-cal-nav:hover {
+  background: var(--warm-white);
+  border-color: var(--accent);
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.calendar-day-name {
+  background: var(--bg-input);
+  padding: 10px;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text3);
+  letter-spacing: 0.1em;
+}
+
+.calendar-day {
+  background: var(--bg-card);
+  min-height: 120px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  transition: background var(--transition);
+}
+
+.calendar-day:hover {
+  background: var(--warm-white);
+}
+
+.calendar-day.empty {
+  background: var(--bg);
+}
+
+.calendar-day.today {
+  background: var(--status-yellow-bg);
+}
+
+.calendar-date-num {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text2);
+  margin-bottom: 8px;
+  align-self: flex-end;
+}
+
+.calendar-day.today .calendar-date-num {
+  color: var(--status-orange);
+  font-weight: 700;
+}
+
+.calendar-day-events {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cal-event-badge {
+  font-size: 0.65rem;
+  padding: 4px 6px;
+  border-radius: 3px;
+  background: var(--bg-input);
+  border-left: 3px solid var(--accent);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  cursor: default;
+}
+
+.cal-event-badge.completed {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+.cal-event-title {
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cal-event-status {
+  font-weight: 700;
+  font-size: 0.6rem;
+  letter-spacing: 0.05em;
+}
+
+/* ═══════════════════════════════════════════════════
    TOAST
    ═══════════════════════════════════════════════════ */
 .toast {
@@ -575,6 +718,110 @@ body {
 .toast.success { border-left: 3px solid var(--status-green); }
 
 /* ═══════════════════════════════════════════════════
+   MODAL
+   ═══════════════════════════════════════════════════ */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-content {
+  background: var(--bg-card);
+  padding: 32px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  width: 90%;
+  max-width: 400px;
+}
+
+.modal-content h3 {
+  font-family: 'Instrument Serif', serif;
+  font-size: 1.8rem;
+  font-weight: 400;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.modal-content p {
+  font-size: 0.88rem;
+  color: var(--text2);
+  margin-bottom: 24px;
+}
+
+.modal-content input {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text);
+  font-family: inherit;
+  margin-bottom: 24px;
+  outline: none;
+  transition: border-color var(--transition);
+}
+
+.modal-content input:focus {
+  border-color: var(--accent);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.btn-cancel {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text3);
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: all var(--transition);
+}
+
+.btn-cancel:hover {
+  background: var(--warm-white);
+  color: var(--text);
+}
+
+.btn-submit {
+  padding: 8px 16px;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: var(--bg);
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: all var(--transition);
+}
+
+.btn-submit:hover {
+  background: var(--accent-hover);
+}
+
+/* ═══════════════════════════════════════════════════
    RESPONSIVE
    ═══════════════════════════════════════════════════ */
 @media (max-width: 900px) {
@@ -589,8 +836,34 @@ body {
   .stat-card { padding: 18px 14px; }
   .stat-num { font-size: 2rem; }
   .overview-title { font-size: 2rem; }
+  
+  .filter-bar-container {
+    flex-direction: column;
+    align-items: stretch;
+    border-bottom: none;
+    gap: 12px;
+  }
+  .filter-bar {
+    border-bottom: 1px solid var(--border);
+  }
+  .view-toggles {
+    border-bottom: 1px solid var(--border);
+  }
+  
   .filter-btn { padding: 10px 14px; font-size: 0.68rem; }
   .event-card { padding: 16px 18px; gap: 14px; }
   .event-card { grid-template-columns: 10px 1fr; }
   .event-actions { grid-column: 2; margin-top: 0; }
+  
+  .calendar-day {
+    min-height: 80px;
+    padding: 4px;
+  }
+  .cal-event-badge {
+    padding: 2px 4px;
+  }
+  .cal-event-title {
+    font-size: 0.55rem;
+  }
 }
+

@@ -15,10 +15,14 @@ import { FACULTY_EMAILS, getFacultyName } from "@/lib/faculty";
 export async function POST(req: Request) {
   // Check for cron secret if using Vercel cron
   const authHeader = req.headers.get("authorization");
-  const isCron = authHeader === `Bearer ${process.env.CRON_SECRET}`;
+  const isCron = process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`;
 
-  // If you want to restrict manual syncing, you can enforce isCron here.
-  // For now, we allow manual trigger from the UI or Vercel cron.
+  const secret = req.headers.get("x-admin-secret");
+  const isAdmin = process.env.ADMIN_SECRET_CODE && secret === process.env.ADMIN_SECRET_CODE;
+
+  if (!isCron && !isAdmin) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
   if (!refreshToken) {

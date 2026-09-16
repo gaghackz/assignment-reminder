@@ -62,7 +62,7 @@ function formatDeadline(dateStr: string): { label: string; status: string; color
   if (days === 1) return { label: date, status: "TOMORROW", color: "#8b6b3a", bg: "var(--status-orange-bg)" };
   if (days <= 3)  return { label: date, status: `${days}D LEFT`,  color: "#8b6b3a", bg: "var(--status-orange-bg)" };
   if (days <= 7)  return { label: date, status: `${days}D LEFT`,  color: "#7a6e2a", bg: "var(--status-yellow-bg)" };
-  return { label: date, status: "", color: "#8a8a80", bg: "transparent" };
+  return { label: date, status: `${days}D LEFT`, color: "#8a8a80", bg: "var(--bg-input)" };
 }
 
 function formatReceived(iso: string): string {
@@ -168,13 +168,93 @@ function EventRow({ ev, onToggle }: { ev: Event; onToggle: (id: string) => void 
   );
 }
 
+// ── Calendar View ─────────────────────────────────
+function CalendarGrid({ events, onToggle }: { events: Event[]; onToggle: (id: string) => void }) {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDayOfMonth = new Date(year, month, 1).getDay();
+
+  const days = [];
+  for (let i = 0; i < firstDayOfMonth; i++) {
+    days.push(null);
+  }
+  for (let i = 1; i <= daysInMonth; i++) {
+    days.push(i);
+  }
+
+  const handlePrev = () => setCurrentDate(new Date(year, month - 1, 1));
+  const handleNext = () => setCurrentDate(new Date(year, month + 1, 1));
+  const handleToday = () => setCurrentDate(new Date());
+
+  const monthName = currentDate.toLocaleString("default", { month: "long" });
+
+  return (
+    <div className="calendar-container">
+      <div className="calendar-header">
+        <button className="btn-cal-nav" onClick={handlePrev}>&larr;</button>
+        <h3>{monthName} {year}</h3>
+        <div>
+          <button className="btn-cal-nav" onClick={handleToday} style={{ marginRight: '8px' }}>Today</button>
+          <button className="btn-cal-nav" onClick={handleNext}>&rarr;</button>
+        </div>
+      </div>
+      <div className="calendar-grid">
+        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+          <div key={d} className="calendar-day-name">{d}</div>
+        ))}
+        {days.map((day, idx) => {
+          if (day === null) return <div key={`empty-${idx}`} className="calendar-day empty" />;
+          
+          const dayEvents = events.filter(e => {
+            if (!e.deadline) return false;
+            const ed = new Date(e.deadline);
+            return ed.getFullYear() === year && ed.getMonth() === month && ed.getDate() === day;
+          });
+
+          const isToday = new Date().toDateString() === new Date(year, month, day).toDateString();
+
+          return (
+            <div key={day} className={`calendar-day ${isToday ? 'today' : ''}`}>
+              <span className="calendar-date-num">{day}</span>
+              <div className="calendar-day-events">
+                {dayEvents.map(e => {
+                  const dl = formatDeadline(e.deadline!);
+                  return (
+                    <div 
+                      key={e.id} 
+                      className={`cal-event-badge ${e.completed ? 'completed' : ''}`} 
+                      style={{ borderLeftColor: TYPE_DOT[e.type], cursor: 'pointer' }} 
+                      title={`${TYPE_LABEL[e.type]}: ${e.title} (Click to toggle)`}
+                      onClick={() => onToggle(e.id)}
+                    >
+                      <span className="cal-event-title">{e.title}</span>
+                      {!e.completed && dl.status && <span className="cal-event-status" style={{ color: dl.color }}>{dl.status}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Dashboard ─────────────────────────────────────
 function Dashboard() {
   const [events, setEvents] = useState<Event[]>([]);
   const [filter, setFilter] = useState("all");
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [syncing, setSyncing] = useState(false);
   const [lastSynced, setLastSynced] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  const [adminModal, setAdminModal] = useState<{ open: boolean, pendingAction: "sync" | "toggle" | null, eventId?: string }>({ open: false, pendingAction: null });
+  const [secretInput, setSecretInput] = useState("");
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
@@ -207,10 +287,26 @@ function Dashboard() {
   useEffect(() => { loadEvents(); }, [loadEvents]);
 
   const handleSync = useCallback(async (silent = false) => {
+    const secret = sessionStorage.getItem("adminSecret");
+    if (!secret) {
+      if (!silent) setAdminModal({ open: true, pendingAction: "sync" });
+      return;
+    }
+
     setSyncing(true);
     try {
-      const res = await fetch("/api/sync", { method: "POST" });
+      const res = await fetch("/api/sync", { 
+        method: "POST",
+        headers: { "x-admin-secret": secret }
+      });
       const data = await res.json();
+      
+      if (res.status === 401) {
+        sessionStorage.removeItem("adminSecret");
+        if (!silent) setAdminModal({ open: true, pendingAction: "sync" });
+        return;
+      }
+      
       if (!res.ok) throw new Error(data.error ?? "Sync failed");
 
       setLastSynced(new Date().toLocaleTimeString("en-IN"));
@@ -232,10 +328,43 @@ function Dashboard() {
   }, [loadEvents]);
 
   const handleToggle = async (id: string) => {
+    const secret = sessionStorage.getItem("adminSecret");
+    if (!secret) {
+      setAdminModal({ open: true, pendingAction: "toggle", eventId: id });
+      return;
+    }
+
     setEvents((prev) =>
       prev.map((e) => (e.id === id ? { ...e, completed: !e.completed } : e))
     );
-    await fetch(`/api/events/${id}/complete`, { method: "POST" });
+    
+    const res = await fetch(`/api/events/${id}/complete`, { 
+      method: "POST",
+      headers: { "x-admin-secret": secret }
+    });
+    
+    if (res.status === 401) {
+      sessionStorage.removeItem("adminSecret");
+      setAdminModal({ open: true, pendingAction: "toggle", eventId: id });
+      await loadEvents();
+    }
+  };
+
+  const submitAdminCode = () => {
+    if (!secretInput) return;
+    sessionStorage.setItem("adminSecret", secretInput);
+    
+    const action = adminModal.pendingAction;
+    const eventId = adminModal.eventId;
+    
+    setAdminModal({ open: false, pendingAction: null });
+    setSecretInput("");
+    
+    if (action === "sync") {
+      handleSync();
+    } else if (action === "toggle" && eventId) {
+      handleToggle(eventId);
+    }
   };
 
   const filtered = events.filter((e) => {
@@ -329,20 +458,38 @@ function Dashboard() {
           ))}
         </div>
 
-        <div className="filter-bar">
-          {FILTERS.map(({ key, label }) => (
-            <button
-              key={key}
-              id={`filter-${key}`}
-              className={`filter-btn ${filter === key ? "active" : ""}`}
-              onClick={() => setFilter(key)}
+        <div className="filter-bar-container">
+          <div className="filter-bar">
+            {FILTERS.map(({ key, label }) => (
+              <button
+                key={key}
+                id={`filter-${key}`}
+                className={`filter-btn ${filter === key ? "active" : ""}`}
+                onClick={() => setFilter(key)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="view-toggles">
+            <button 
+              className={`filter-btn ${viewMode === 'list' ? 'active' : ''}`} 
+              onClick={() => setViewMode('list')}
             >
-              {label}
+              List
             </button>
-          ))}
+            <button 
+              className={`filter-btn ${viewMode === 'calendar' ? 'active' : ''}`} 
+              onClick={() => setViewMode('calendar')}
+            >
+              Calendar
+            </button>
+          </div>
         </div>
 
-        {filtered.length === 0 && urgent.length === 0 ? (
+        {viewMode === "calendar" ? (
+          <CalendarGrid events={filtered} onToggle={handleToggle} />
+        ) : filtered.length === 0 && urgent.length === 0 ? (
           <div className="empty-state">
             <h3>
               {events.length === 0
@@ -393,6 +540,27 @@ function Dashboard() {
       {toast && (
         <div className={`toast ${toast.type}`}>
           {toast.msg}
+        </div>
+      )}
+
+      {adminModal.open && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3>Admin Access Required</h3>
+            <p>Please enter the secret code to perform this action.</p>
+            <input 
+              type="password" 
+              placeholder="Enter secret code" 
+              value={secretInput}
+              onChange={(e) => setSecretInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && submitAdminCode()}
+              autoFocus
+            />
+            <div className="modal-actions">
+              <button className="btn-cancel" onClick={() => setAdminModal({ open: false, pendingAction: null })}>Cancel</button>
+              <button className="btn-submit" onClick={submitAdminCode}>Submit</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
